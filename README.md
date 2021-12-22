@@ -7,14 +7,18 @@ Proposed simulation framework will simulate Dengue epidemic using Agent based mo
 ABM will help us interaction between different agents in play and the environmental considerations
 
 Agents will be mainly segregated as:
+
   Host layer ( Humans )
   Vector layer ( Mosquitoes )
 
 Current status:
 Simulation engine for:
   Human stage transition:  Susceptible -> Infected - > Recovered / Dead 
+  
   Vector stage changes : Eggs -> Larva - Pupa - > Adult
+  
   Bite based on hunger for female vector
+  
   Spread of infection based on bite
   Vector reproduction via Laying eggs in breeding zones
   Time step for day and night
