@@ -63,6 +63,7 @@ globals
   HUMAN_KILLING_RANGE
   WORKING_HOUR?
   DEATH_BY_HUMAN_PROBABILITY
+  BREEDING-RANGE
   flag
 ]
 
@@ -383,6 +384,10 @@ end
 
 to eliminate-breeding-zones
 end
+
+to move-probabilistically-towards-breeding-zone
+end
+
 
 
 
