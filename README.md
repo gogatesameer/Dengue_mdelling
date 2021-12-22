@@ -11,22 +11,13 @@ Agents will be mainly segregated as:
   Vector layer ( Mosquitoes )
 
 Simulation engine for below is developed ( current status )
-		Human stage transition:  Susceptible -> Infected - > Recovered / Dead 
-
-		Vector stage changes : Eggs -> Larva - Pupa - > Adult
-
-		Bite based on hunger for female vector
-
-		Spread of infection based on bite
-
-		Vector reproduction via Laying eggs in breeding zones
-
-		Time step for day and night
-
-		Host and Vector mobility
-
-		Human killing vector probabilistically
-
-		Eventual vector death
-
-		Immunity for immunity duration
+	Human stage transition:  Susceptible -> Infected - > Recovered / Dead 
+	Vector stage changes : Eggs -> Larva - Pupa - > Adult
+	Bite based on hunger for female vector
+	Spread of infection based on bite
+	Vector reproduction via Laying eˀgs in breeding zones
+	Time step for day and night
+	Host and Vector mobility
+	Human killing vector probabilistically
+	Eventual vector death
+	Immunity for immunity duration
