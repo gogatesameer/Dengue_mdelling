@@ -164,6 +164,7 @@ to set-global-variables
   set WORKING_HOUR? TRUE
   set HUMAN_KILLING_RANGE 0.25
   set DEATH_BY_HUMAN_PROBABILITY 0.4
+  set BREEDING-RANGE 0.5
   set flag 0
 end
 
@@ -171,6 +172,7 @@ to set-initial-population
 
   create-humans-random
   create-aedesp-random
+  create-breedingZones-random
   ;;create aesdp
   ;; create houses
   ;; create breedingzones
@@ -213,6 +215,18 @@ to create-aedesp-random
 
     ]
   ]
+end
+
+
+to create-breedingZones-random
+
+    create-breedingZones 4
+    [
+      setRandomXY
+      set shape "triangle"
+      set color orange
+      set size 2
+    ]
 end
 
 
@@ -292,7 +306,7 @@ to recovery-or-death-humans
 end
 
 to lay-eggs
-  hatch-aedesp 2
+  hatch-aedesp 1
   [
     set shape "bug"
     set color red
@@ -322,11 +336,12 @@ to reproduce-aedesp-temp
   [
     ifelse (any? aedesp in-radius 2 with [female? = False and life_stage = "Adult"] ) and ( any? breedingZones in-radius BREEDING-RANGE )
     [
-     set laidEggs? True
+    set laidEggs? True
     lay-eggs
     ]
     [
-      move-probabilistically-towards-breeding-zone
+      show "I am here"
+      move-towards-breeding-zone (min-one-of breedingZones [distance myself] ) 4 0.5
     ]
 
   ]
@@ -385,9 +400,22 @@ end
 to eliminate-breeding-zones
 end
 
-to move-probabilistically-towards-breeding-zone
-end
 
+
+to move-towards-breeding-zone [target speed probability]
+  if(target != nobody)
+  [
+
+
+      let distanceTemp ([distance myself] of target)
+      if( ([distance myself] of target) != 0)
+      [
+        set heading (towards target)
+        ifelse(distanceTemp > speed)[forward speed][forward distanceTemp]
+      ]
+
+  ]
+end
 
 
 
@@ -534,8 +562,25 @@ true
 false
 "" ""
 PENS
-"Aedsp infections" 1.0 0 -2674135 true "" "plot count aedesp with [infected? = True and female? = True]"
 "pen-1" 1.0 0 -7500403 true "" "plot count humans with  [state = \"Infected\"]"
+
+PLOT
+938
+302
+1138
+452
+Infected Vector
+NIL
+NIL
+0.0
+100.0
+0.0
+10000.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -2674135 true "" "plot count aedesp with [infected? = True and female? = True]"
 
 @#$#@#$#@
 ## WHAT IS IT?
