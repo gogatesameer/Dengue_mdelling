@@ -1,3 +1,5 @@
+extensions [gis table csv]
+
 breed[houses house]
 breed[workZones workZone]
 breed[landmarks landmark]
@@ -14,7 +16,7 @@ humans-own[
   name
   coMorbid?
   male?
-  publicPlaceVisits?
+  my-house
 ]
 
 aedesp-own
@@ -42,11 +44,10 @@ workZones-own[
 ]
 
 houses-own[
-  group ;; C:Int: Number of human group or family
-  area ;; C:Int: Determines the house size and the number of persons that live in it
-  persons ;; C:Int: Number of persons living in a given house
-  name ;; C:String: House name
-  gravity ;; C:ListFloat: Probability to visit other households according to pre-computed gravity model
+  group
+  area
+  persons
+  name
 ]
 
 breedingZones-own[
@@ -65,6 +66,9 @@ globals
   DEATH_BY_HUMAN_PROBABILITY
   BREEDING-RANGE
   flag
+  mylist
+  counter
+  cnt
 ]
 
 
@@ -84,7 +88,9 @@ to act-human-day
 end
 
 to act-human-night
-  ask humans [rt random 30 - 15 fd 0.5]
+  set counter 0
+  ask humans [go-towards-house my-house 2 0.4]
+  ;;show counter
   kill-probabilistically-aedesp
 end
 
@@ -109,6 +115,20 @@ end
 to setRandomXY
   setxy (random-integer-between (- max-pxcor) max-pxcor) (random-integer-between (- max-pycor) max-pycor)
 end
+
+to report-numbers-at-one-stage
+
+  let infected-humans (count humans with  [state = "Infected"])
+  let infected-aedesp (count aedesp with [infected? = True and female? = True])
+  let  mylist1 (list infected-humans infected-aedesp )
+  set mylist lput mylist1 mylist
+  if( cnt = 0 )
+   [set mylist but-first mylist
+    set mylist but-first mylist
+    set cnt cnt + 1]
+  show mylist
+end
+
 
 ;;--------------------mosquito behavioir----------------
 to act-aedsp
@@ -150,6 +170,7 @@ to setup
   reset-ticks
   set-global-variables
   set-initial-population
+  set-house
 end
 
 
@@ -157,6 +178,7 @@ end
 
 
 to set-global-variables
+
   set ACTION-RADIUS 0.5
   set HOUSE-SIZE 5
   set HUMAN-ACTION-RADIUS 30
@@ -166,6 +188,9 @@ to set-global-variables
   set DEATH_BY_HUMAN_PROBABILITY 0.4
   set BREEDING-RANGE 0.5
   set flag 0
+  set mylist [0 0]
+  set counter 0
+  set cnt 0
 end
 
 to set-initial-population
@@ -173,6 +198,7 @@ to set-initial-population
   create-humans-random
   create-aedesp-random
   create-breedingZones-random
+  create-houses-random
   ;;create aesdp
   ;; create houses
   ;; create breedingzones
@@ -220,13 +246,24 @@ end
 
 to create-breedingZones-random
 
-    create-breedingZones 4
+    create-breedingZones BREED-ZONES
     [
       setRandomXY
       set shape "triangle"
       set color orange
       set size 2
     ]
+end
+
+
+to create-houses-random
+  create-houses 5
+  [
+    setRandomXY
+    set shape "house"
+    set color green
+    set size 3
+  ]
 end
 
 
@@ -240,13 +277,16 @@ to go
   act-humanp
   change-state-aedesp
   aedesp-bite
-  reproduce-aedesp
+  reproduce-aedesp-temp
   die-aedesp
   act-breedingZones
 
   ifelse WORKING_HOUR?
   [set WORKING_HOUR? FALSE]
   [set WORKING_HOUR? TRUE]
+  report-numbers-at-one-stage
+  eliminate-breeding-zone
+  write-to-file
 end
 
 ;;-------- bite routine
@@ -306,7 +346,7 @@ to recovery-or-death-humans
 end
 
 to lay-eggs
-  hatch-aedesp 1
+  hatch-aedesp 20
   [
     set shape "bug"
     set color red
@@ -336,11 +376,12 @@ to reproduce-aedesp-temp
   [
     ifelse (any? aedesp in-radius 2 with [female? = False and life_stage = "Adult"] ) and ( any? breedingZones in-radius BREEDING-RANGE )
     [
+   ;; show "I am here"
     set laidEggs? True
     lay-eggs
     ]
     [
-      show "I am here"
+
       move-towards-breeding-zone (min-one-of breedingZones [distance myself] ) 4 0.5
     ]
 
@@ -373,7 +414,7 @@ end
 to die-aedesp
   ask aedesp
   [
-    if (age > 20 and random-bool 0.2)
+    if (age > 40 and random-bool 0.2)
     [
       die
     ]
@@ -410,8 +451,9 @@ to move-towards-breeding-zone [target speed probability]
       let distanceTemp ([distance myself] of target)
       if( ([distance myself] of target) != 0)
       [
+        ;;show "Moving towards Breeding zone"
         set heading (towards target)
-        ifelse(distanceTemp > speed)[forward speed][forward distanceTemp]
+        ifelse(distanceTemp > speed)[forward speed][forward 1]
       ]
 
   ]
@@ -419,16 +461,71 @@ end
 
 
 
-;; Check whether breeding zone is in vicinity of laying eggs
+;; Check whether breeding zone is in vicinity of laying eggs - Done
 ;; Check hunger for bite - Keep hunger Index -- Done
-;; Human - Home to Office
+;; Human - Home to Office - to be done today
 ;; Mathematica reporting
 ;; Visualization using mathematica
+;; Create file for reporting
 
 
+to eliminate-breeding-zone
+  if ( BREED_ZONE_ELM )
+  [
+   ask one-of breedingZones
+   [
+    die
+   ]
+
+  ]
+end
 
 
+to go-towards-house [target speed probability ]
+   ifelse( random-bool 0.5 )
+   [
+      set counter counter + 1
+      let distanceTemp ([distance myself] of target)
+      if( ([distance myself] of target) != 0)
+      [
+        ;;show "Moving towards Breeding zone"
+        set heading (towards target)
+        ifelse(distanceTemp > speed)[forward speed][forward distanceTemp]
+      ]
 
+   ]
+
+   [
+      let distanceTemp ([distance myself] of target - 2)
+      if( ([distance myself] of target) != 0)
+      [
+        ;;show "Moving towards Breeding zone"
+        set heading (towards target)
+        ifelse(distanceTemp > speed)[forward speed][forward distanceTemp]
+      ]
+  ]
+end
+
+to set-house
+ ask humans
+  [
+     if my-house != nobody [
+        set my-house one-of houses
+        move-to my-house
+  ]
+  ]
+end
+
+
+to go-towards-work [target speed probability]
+end
+
+to write-to-file
+    let ph-memory table:from-list mylist
+    file-open "/Users/sameergogate/documents/Netlogo_dengue_model/PPPR_project_dengue/testfile.csv"
+    file-print csv:to-string table:to-list ph-memory
+    file-close
+end
 
 
 ;;---------------map and actual population simulation--------
@@ -469,7 +566,7 @@ Human_population
 Human_population
 0
 10000
-1783.0
+191.0
 1
 1
 NIL
@@ -484,7 +581,7 @@ Aedes
 Aedes
 0
 10000
-382.0
+1019.0
 1
 1
 NIL
@@ -581,6 +678,32 @@ false
 "" ""
 PENS
 "default" 1.0 0 -2674135 true "" "plot count aedesp with [infected? = True and female? = True]"
+
+SLIDER
+960
+88
+1132
+121
+BREED-ZONES
+BREED-ZONES
+0
+100
+26.0
+2
+1
+NIL
+HORIZONTAL
+
+SWITCH
+955
+137
+1179
+170
+BREED_ZONE_ELM
+BREED_ZONE_ELM
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
