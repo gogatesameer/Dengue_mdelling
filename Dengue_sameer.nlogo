@@ -17,6 +17,7 @@ humans-own[
   coMorbid?
   male?
   my-house
+  my-workplace
 ]
 
 aedesp-own
@@ -37,6 +38,7 @@ aedesp-own
 
 patches-own[
   road;; C:Bool: True if the patch is a road, false if it is regular ground
+  waterAccumulation
 ]
 
 workZones-own[
@@ -126,7 +128,7 @@ to report-numbers-at-one-stage
    [set mylist but-first mylist
     set mylist but-first mylist
     set cnt cnt + 1]
-  show mylist
+ ;; show mylist
 end
 
 
@@ -159,8 +161,25 @@ to act-mosquito-night
 end
 
 
+to act-patches
+  ask houses
+  [
+    ask patches in-radius 2
+    [
+      set waterAccumulation waterAccumulation + 1
+      if ( waterAccumulation > 5 and random-bool 0.15 AND SEASON = "Rainy" )
+      [
+        sprout-breedingZones 1
+        [
+          set shape "triangle"
+          set color orange
+          set size 2
+        ]
 
-
+    ]
+    ]
+  ]
+end
 
 
 ;;-------------------Initial setup----------------------
@@ -199,6 +218,10 @@ to set-initial-population
   create-aedesp-random
   create-breedingZones-random
   create-houses-random
+  create-workZones-random
+  move-breedZones-nearhome
+  set-patches
+
   ;;create aesdp
   ;; create houses
   ;; create breedingzones
@@ -223,11 +246,14 @@ to create-aedesp-random
     setRandomXY
     set age random-integer-between 0 20
     set shape "bug"
-    set color red
+    set color white
     set size 0.4
-    ifelse (random-bool 0.1)
+    set hunger 0
+    set laidEggs? False
+    ifelse (random-bool 0.01)
     [
       set infected? True
+      set color red
     ]
     [
       set infected? False
@@ -266,9 +292,25 @@ to create-houses-random
   ]
 end
 
-
-to act-breedingZones
+to create-workZones-random
+  create-workZones 5
+  [
+    setRandomXY
+    set shape "building institution"
+    set color yellow
+    set size 2
+  ]
 end
+
+
+
+to set-patches
+  ask patches
+  [
+    set waterAccumulation 0
+  ]
+end
+
 
 
 to go
@@ -277,9 +319,9 @@ to go
   act-humanp
   change-state-aedesp
   aedesp-bite
-  reproduce-aedesp-temp
+  reproduce-aedesp
   die-aedesp
-  act-breedingZones
+  act-patches
 
   ifelse WORKING_HOUR?
   [set WORKING_HOUR? FALSE]
@@ -287,6 +329,7 @@ to go
   report-numbers-at-one-stage
   eliminate-breeding-zone
   write-to-file
+ ;; show count breedingZones
 end
 
 ;;-------- bite routine
@@ -297,7 +340,10 @@ to aedesp-bite
   [
 
    ask humans in-radius ACTION-RADIUS
+
     [
+
+      ;;show "Humans getting infected"
       if (state = "Susceptible" AND (random-bool 0.4))
        [
         set state "Infected"
@@ -313,15 +359,19 @@ to aedesp-bite
 
   ]
 
-  ask aedesp with [infected? = false and life_stage = "Adult" and laidEggs? = True]
+  ask aedesp with [infected? = false and life_stage = "Adult" and laidEggs? = True and hunger < 2]
   [
+    ;;show "I am here"
     if ( count humans with [state = "infected" ] in-radius ACTION-RADIUS <= 1  AND (random-bool 0.4))
     [
       set infected? True
+      set color red
+      set hunger hunger + 1
     ]
   ]
 
 end
+
 
 
 
@@ -349,7 +399,6 @@ to lay-eggs
   hatch-aedesp 20
   [
     set shape "bug"
-    set color red
     set size 0.4
     set age 0
     set life_stage "Eggs"
@@ -359,7 +408,7 @@ end
 
 ;;--reproduce Aedesp
 
-to reproduce-aedesp
+to reproduce-aedesp-temp
   ask aedesp with [ female? = True and age > 10 and life_Stage = "Adult"]
   [
     if any? aedesp in-radius 2 with [female? = False and life_stage = "Adult"]
@@ -371,18 +420,18 @@ to reproduce-aedesp
 end
 
 
-to reproduce-aedesp-temp
+to reproduce-aedesp
   ask aedesp with [ female? = True and age > 10 and life_Stage = "Adult"]
   [
-    ifelse (any? aedesp in-radius 2 with [female? = False and life_stage = "Adult"] ) and ( any? breedingZones in-radius BREEDING-RANGE )
+    ifelse ((any? aedesp in-radius 2 with [female? = False and life_stage = "Adult"] ) and ( any? breedingZones in-radius BREEDING-RANGE ) and laidEggs? = False)
     [
-   ;; show "I am here"
+    ;;show "I am here"
     set laidEggs? True
     lay-eggs
     ]
     [
 
-      move-towards-breeding-zone (min-one-of breedingZones [distance myself] ) 4 0.5
+      move-towards-breeding-zone (min-one-of breedingZones [distance myself] ) 0.5 0.5
     ]
 
   ]
@@ -438,8 +487,6 @@ to act-dead
   die
 end
 
-to eliminate-breeding-zones
-end
 
 
 
@@ -470,7 +517,7 @@ end
 
 
 to eliminate-breeding-zone
-  if ( BREED_ZONE_ELM )
+  if ( BREED_ZONE_ELM and random-bool 0.4 )
   [
    ask one-of breedingZones
    [
@@ -496,13 +543,10 @@ to go-towards-house [target speed probability ]
    ]
 
    [
-      let distanceTemp ([distance myself] of target - 2)
-      if( ([distance myself] of target) != 0)
-      [
+      set heading (random-integer-between 0 180 )
+
         ;;show "Moving towards Breeding zone"
-        set heading (towards target)
-        ifelse(distanceTemp > speed)[forward speed][forward distanceTemp]
-      ]
+      forward speed
   ]
 end
 
@@ -517,8 +561,45 @@ to set-house
 end
 
 
-to go-towards-work [target speed probability]
+to set-work
+  ask humans
+  [
+    if worker? and my-workplace != nobody
+    [
+      set my-workplace one-of workZones
+    ]
+  ]
 end
+
+
+
+to go-towards-work [target speed probability]
+  if (random-bool 0.9)
+  [
+  let distanceTemp ([distance myself] of target)
+      if( ([distance myself] of target) != 0)
+      [
+        ;;show "Moving towards Breeding zone"
+        set heading (towards target)
+        ifelse(distanceTemp > speed)[forward speed][forward distanceTemp]
+      ]
+  ]
+end
+
+to move-breedZones-nearhome
+ask breedingZones[
+
+let target (min-one-of houses [distance myself] )
+ let distanceTemp ([ distance myself ] of target )
+  if ( distanceTemp > 2 )
+  [
+
+    set heading (towards target )
+    forward (distanceTemp - 2)
+  ]
+  ]
+end
+
 
 to write-to-file
     let ph-memory table:from-list mylist
@@ -586,17 +667,6 @@ Aedes
 1
 NIL
 HORIZONTAL
-
-SWITCH
-682
-127
-870
-160
-Temp_control
-Temp_control
-0
-1
--1000
 
 SWITCH
 686
@@ -680,30 +750,40 @@ PENS
 "default" 1.0 0 -2674135 true "" "plot count aedesp with [infected? = True and female? = True]"
 
 SLIDER
-960
-88
-1132
-121
+683
+125
+855
+158
 BREED-ZONES
 BREED-ZONES
 0
 100
-26.0
+30.0
 2
 1
 NIL
 HORIZONTAL
 
 SWITCH
-955
-137
-1179
-170
+687
+240
+911
+273
 BREED_ZONE_ELM
 BREED_ZONE_ELM
 0
 1
 -1000
+
+CHOOSER
+958
+72
+1096
+117
+SEASON
+SEASON
+"RAINY" "SUMMER" "WINTER"
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -775,6 +855,38 @@ Circle -7500403 true true 110 127 80
 Circle -7500403 true true 110 75 80
 Line -7500403 true 150 100 80 30
 Line -7500403 true 150 100 220 30
+
+building institution
+false
+0
+Rectangle -7500403 true true 0 60 300 270
+Rectangle -16777216 true false 130 196 168 256
+Rectangle -16777216 false false 0 255 300 270
+Polygon -7500403 true true 0 60 150 15 300 60
+Polygon -16777216 false false 0 60 150 15 300 60
+Circle -1 true false 135 26 30
+Circle -16777216 false false 135 25 30
+Rectangle -16777216 false false 0 60 300 75
+Rectangle -16777216 false false 218 75 255 90
+Rectangle -16777216 false false 218 240 255 255
+Rectangle -16777216 false false 224 90 249 240
+Rectangle -16777216 false false 45 75 82 90
+Rectangle -16777216 false false 45 240 82 255
+Rectangle -16777216 false false 51 90 76 240
+Rectangle -16777216 false false 90 240 127 255
+Rectangle -16777216 false false 90 75 127 90
+Rectangle -16777216 false false 96 90 121 240
+Rectangle -16777216 false false 179 90 204 240
+Rectangle -16777216 false false 173 75 210 90
+Rectangle -16777216 false false 173 240 210 255
+Rectangle -16777216 false false 269 90 294 240
+Rectangle -16777216 false false 263 75 300 90
+Rectangle -16777216 false false 263 240 300 255
+Rectangle -16777216 false false 0 240 37 255
+Rectangle -16777216 false false 6 90 31 240
+Rectangle -16777216 false false 0 75 37 90
+Line -16777216 false 112 260 184 260
+Line -16777216 false 105 265 196 265
 
 butterfly
 true
