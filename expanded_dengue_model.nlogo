@@ -20,12 +20,12 @@ globals
   counter
   cnt
   chance-of-death
-  travel-restriction
-  travel-by-road-only
+  pune-dataset
+
 ]
 
 
-patches-own [district-name confirmed population road-here waterAccumulation]
+patches-own [ward-name waterAccumulation]
 turtles-own []
 
 breed [admin-labels admin-label]
@@ -48,7 +48,7 @@ people-own[
   male?
   my-house
   my-workplace
-  district
+  ward
 ]
 
 aedesp-own
@@ -86,11 +86,7 @@ breedingZones-own[
 to setup
   clear-all
   reset-ticks
-  gis:load-coordinate-system (word "data/gis-abm-lesson.prj")
-  set sites gis:load-dataset "data/Ebola_Treatment_Centers/Ebola_Treatment_Centers.shp"
-  set roads gis:load-dataset "data/Sierra_Leone_Roads/Sierra Leone_Roads.shp"
-  set districts gis:load-dataset "data/Cases_at_Admin2_Level/Cases_at_Admin2_Level.shp"
-  set SL gis:load-dataset "data/Sierra_Leone_Roads/SL_Admin01.shp"
+  set pune-dataset gis:load-dataset "Pune.geojson"
   set-global-variables
   ;set-pop -- commenting as we have dedicated function to load population
   ;set-house -- move to set-pop
@@ -100,50 +96,30 @@ to setup
 to draw
 clear-drawing
 reset-ticks
-gis:set-world-envelope (gis:envelope-union-of ;(gis:envelope-of sites)
-                                              ;(gis:envelope-of roads)
-                                              ;(gis:envelope-of districts)
-                                              (gis:envelope-of SL)
-                                              )
-ask patches [set pcolor white]
-
-gis:apply-coverage districts "GLOBAL_A_1" district-name
-gis:apply-coverage districts "V_ADM2_C_3" confirmed
-
-ask patches
-   [ifelse (confirmed > 0)
-      [set pcolor scale-color red confirmed 5000 0]
-      [set pcolor white]
-   ]
-
-gis:set-drawing-color gray
-gis:draw districts 2
-
+gis:set-world-envelope gis:envelope-of pune-dataset
+   ;;gis:set-transformation world-envelope (list min-pxcor max-pxcor min-pycor max-pycor)
 gis:set-drawing-color red
-gis:draw sites 3
-
+ask patches [set pcolor white]
+gis:apply-coverage pune-dataset "NAME" ward-name
 gis:set-drawing-color black
-gis:draw roads 1
-
-ask patches
-     [if gis:intersects? roads self
-         [set road-here 1 ] ]
-
+gis:draw pune-dataset 1
+label-wards
 end
 
-to label-districts
+to label-wards
   ask admin-labels [die]
-  foreach gis:feature-list-of districts
+  foreach gis:feature-list-of pune-dataset
     [ ?1 -> let centroid gis:location-of gis:centroid-of ?1
        if not empty? centroid
          [create-admin-labels 1
-            [set xcor item 0 centroid
+            [ set xcor item 0 centroid
               set ycor item 1 centroid
               set size 0
               set shape "circle"
               set color gray
-              set name gis:property-value ?1 "GLOBAL_A_1"
-              set label name
+              let ward_name gis:property-value ?1 "NAME"
+              set ward_name upper-case-string ward_name
+              set label ward_name
               set label-color black ]
          ]
     ]
@@ -284,25 +260,23 @@ end
 
 
 to load-pop
-  file-open "data/SL_pop.csv"
+  file-open "Pune_wards.csv"
     if not file-at-end? [let header csv:from-row file-read-line]
    while [not file-at-end?]
     [let row csv:from-row file-read-line
       ;let district_name item 0 row
       let d_name item 0 row
-      let district_name upper-case-string d_name ;convert text to uppercase
-      if district_name = "WESTERN RURAL" [set district_name "WESTERN AREA RURAL"]
-      if district_name = "WESTERN URBAN" [set district_name "WESTERN AREA URBAN"]
-      let district_pop item 4 row
-      let small_pop (district_pop / 10000)
+      let ward_name d_name ;convert text to uppercase
+      let district_pop item 1 row
+      let small_pop (district_pop / 1000)
       create-people small_pop
          [
-          set district district_name
+          set ward ward_name
           set shape "person"
           set size HUMAN-SIZE
           set label ""
           set color blue
-          move-to one-of patches with [district-name = [district] of myself]
+          move-to one-of patches with [ward-name = [ward] of myself]
           set shape "person"
           set age random-integer-between 0  85
           set size HUMAN-SIZE
@@ -904,12 +878,12 @@ Infections
 0.0
 100.0
 0.0
-1000.0
+200.0
 true
 false
 "" ""
 PENS
-"pen-1" 1.0 0 -7500403 true "" "plot count humans with  [state = \"Infected\"]"
+"pen-1" 1.0 0 -7500403 true "" "plot count people with  [state = \"Infected\"]"
 
 PLOT
 1121
@@ -1048,7 +1022,7 @@ BUTTON
 121
 89
 NIL
-label-districts
+label-wards
 NIL
 1
 T
