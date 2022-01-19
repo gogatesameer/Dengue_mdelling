@@ -99,8 +99,9 @@ reset-ticks
 gis:set-world-envelope gis:envelope-of pune-dataset
    ;;gis:set-transformation world-envelope (list min-pxcor max-pxcor min-pycor max-pycor)
 gis:set-drawing-color red
-ask patches [set pcolor white]
+ask patches [set pcolor white set ward-name "Outside"]
 gis:apply-coverage pune-dataset "NAME" ward-name
+ask patches [ ifelse is-string? ward-name [] [ set ward-name "Outside" ] ]
 gis:set-drawing-color black
 gis:draw pune-dataset 1
 label-wards
@@ -136,7 +137,7 @@ to set-global-variables
   set HOUSE-SIZE 1
   set HUMAN-SIZE 0.4
   set MOSQUITO-SIZE 0.1
-  set BREEDING-ZONE-SIZE 0.1
+  set BREEDING-ZONE-SIZE 0.5
   set HUMAN-ACTION-RADIUS 30
   set WORKING_HOUR? TRUE
   set HUMAN_KILLING_RANGE 0.25
@@ -230,12 +231,13 @@ end
 
 
 to create-houses-random
-  create-houses Human_population / 5
+  create-houses counter / 10
   [
     setRandomXY
     set shape "house"
     set color green
     set size HOUSE-SIZE
+    move-to one-of patches with [ ward-name != "Outside" ]
   ]
 end
 
@@ -260,7 +262,8 @@ end
 
 
 to load-pop
-  file-open "Pune_wards.csv"
+  set counter 0
+  file-open "Pune_wards1.csv"
     if not file-at-end? [let header csv:from-row file-read-line]
    while [not file-at-end?]
     [let row csv:from-row file-read-line
@@ -268,7 +271,8 @@ to load-pop
       let d_name item 0 row
       let ward_name d_name ;convert text to uppercase
       let district_pop item 1 row
-      let small_pop (district_pop / 1000)
+      let small_pop round (district_pop / 1000)
+      set counter counter + small_pop
       create-people small_pop
          [
           set ward ward_name
@@ -744,11 +748,11 @@ ask breedingZones[
 
 let target (min-one-of houses [distance myself] )
  let distanceTemp ([ distance myself ] of target )
-  if ( distanceTemp > 2 )
+  if ( distanceTemp > 1 )
   [
 
     set heading (towards target )
-    forward (distanceTemp - 2)
+    forward (distanceTemp - 1)
   ]
   ]
 end
@@ -762,8 +766,9 @@ to write-to-file
 end
 
 
-;;---------------map and actual population simulation--------
-;; ---------------addition of exposed state
+;;---------------map and actual population simulation-------- done
+;; ---------------addition of exposed state - to be done
+;;  have more breeding zones in some wards
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
