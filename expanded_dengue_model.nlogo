@@ -21,7 +21,8 @@ globals
   cnt
   chance-of-death
   pune-dataset
-
+  deadPeople
+  days
 ]
 
 
@@ -63,7 +64,7 @@ aedesp-own
  hunger
  movement_speeds
  life_stage_ticks
-
+ eggsTimes
 ]
 
 
@@ -142,12 +143,13 @@ to set-global-variables
   set WORKING_HOUR? TRUE
   set HUMAN_KILLING_RANGE 0.25
   set DEATH_BY_HUMAN_PROBABILITY 0.4
-  set BREEDING-RANGE 0.5
+  set BREEDING-RANGE 0.75
   set flag 0
   set mylist [0 0]
   set counter 0
   set cnt 0
   set AEDESP-MAX-AGE 40
+  set deadPeople 0
 end
 
 to set-pop
@@ -164,7 +166,7 @@ to set-pop
   create-workZones-random
   move-breedZones-nearhome
   set-house
-  ;set-patches
+  set-patches
 end
 
 ;; Check size of all so that movement and ranges mean actually
@@ -195,16 +197,17 @@ to create-aedesp-random
     setRandomXY
     set age random-integer-between 0 AEDESP-MAX-AGE
     set shape "bug"
-    set color white
+    set color black
     set size MOSQUITO-SIZE
     set hunger 0
     set laidEggs? False
+    set eggsTimes 0
     set infected? False
 
     ifelse (random-bool 0.5)
     [
       set female? True
-      if(random-bool 0.01)
+      if(random-bool 0.05)
     [
       set infected? True
       set color red
@@ -263,7 +266,7 @@ end
 
 to load-pop
   set counter 0
-  file-open "Pune_wards1.csv"
+  file-open "Pune_wards.csv"
     if not file-at-end? [let header csv:from-row file-read-line]
    while [not file-at-end?]
     [let row csv:from-row file-read-line
@@ -400,14 +403,22 @@ to act-aedsp
     ]
   ]
  ask aedesp[
- set age (age + 1)
+ set age age + 1
  set life_stage_ticks (life_stage_ticks + 1)
  change-state-aedesp
+ ]
+  if count aedesp with [infected? = True ] = 0
+  [
+  ask one-of aedesp with [female? = True and laidEggs? = False]
+  [
+    set infected?  True
+    set color Red
+  ]
   ]
 end
 
 to act-mosquito-day
-  ask aedesp [ rt random 91 - 45 fd 1 ]
+   rt random 91 - 45 fd 0.5
 end
 
 to act-mosquito-night
@@ -415,22 +426,37 @@ end
 
 
 to act-patches
-  ask houses
+  repeat 20
   [
-    ask patches in-radius 2
+  ask one-of houses
+  [
+    ask one-of patches in-radius 0.5
     [
-      set waterAccumulation waterAccumulation + 1
-      if ( waterAccumulation > 5 and random-bool 0.15 AND SEASON = "Rainy" )
+
+      if (SEASON = "RAINY" )
       [
+        set waterAccumulation waterAccumulation + W_ACC * 2
+      ]
+      if (SEASON = "WINTER" OR SEASON = "SUMMER")
+       [
+            set waterAccumulation waterAccumulation + W_ACC / 5
+       ]
+
+     ask one-of patches in-radius 0.5
+        [
+          set waterAccumulation waterAccumulation - W_ACC / 10
+        ]
+     if ( waterAccumulation > 10 and random-bool 0.05 )
+        [
         sprout-breedingZones 1
         [
           set shape "triangle"
           set color orange
-          set size 2
+          set size BREEDING-ZONE-SIZE
         ]
-
     ]
     ]
+  ]
   ]
 end
 
@@ -453,6 +479,7 @@ to go
   [set WORKING_HOUR? TRUE]
   report-numbers-at-one-stage
   eliminate-breeding-zone
+  change-season
   write-to-file
  ;; show count breedingZones
 end
@@ -461,10 +488,10 @@ end
 to aedesp-bite
   set flag 0
  ;; show count aedesp with [infected? = True and female? = True and life_stage = "Adult"]
-  ask aedesp with [infected? = True and laidEggs? = True and female? = True and hunger < 2]
+  ask aedesp with [infected? = True and laidEggs? = True  and female? = True and hunger < 2]
   [
 
-   ask people in-radius ACTION-RADIUS
+    ask people in-radius ACTION-RADIUS with [ state = "Susceptible" ]
 
     [
 
@@ -482,18 +509,18 @@ to aedesp-bite
         set hunger hunger + 1
         set flag 0
       ]
-
   ]
 
   ask aedesp with [infected? = false and life_stage = "Adult" and laidEggs? = True and hunger < 2]
   [
     ;;show "I am here"
-    if ( count people with [state = "infected" ] in-radius ACTION-RADIUS <= 1  AND (random-bool inf-prob))
+    if( ( count people with [state = "Infected" ] in-radius ACTION-RADIUS ) >= 1  AND (random-bool inf-prob))
     [
       set infected? True
       set color red
       set hunger hunger + 1
     ]
+
   ]
 
 end
@@ -512,21 +539,32 @@ end
 to recovery-or-death-people
   ask people with [state = "Infected" or state = "Recovered"]
   [
-    set daysSinceInfection daysSinceInfection + 1
-    if daysSinceInfection > random-integer-between 7 10 and state = "Infected" AND comorbid? = False AND random-bool Recovery-rate
+    set daysSinceInfection daysSinceInfection + 0.5
+    ifelse daysSinceInfection >  duration and state = "Infected" AND comorbid? = False AND random-bool Recovery-rate
     [
 
       set state "Recovered"
     ]
-    if daysSinceInfection > random-integer-between 7 10 and state = "Infected" AND comorbid? = True  AND random-bool (Recovery-rate - 0.05)
+    [
+      if ( daysSinceInfection > duration AND comorbid? = False  AND state = "Infected" )
+      [
+      show "Death ##### for Healthy"
+      set deadPeople deadPeople + 1
+      die
+      ]
+    ]
+    ifelse daysSinceInfection >  duration and state = "Infected" AND comorbid? = True  AND random-bool (Recovery-rate - 0.05)
     [
       set state "Recovered"
     ]
-    if (state = "Infected" and daysSinceInfection > 10 )
-    [
-      show "Death #####"
-      set state "Dead"
+   [ if ( daysSinceInfection > duration AND comorbid? = True AND state = "Infected" )
+      [
+      show "Death ##### Comorbid"
+      set deadPeople deadPeople + 1
+      die
+      ]
     ]
+
     if (daysSinceInfection > 200 and state = "Recovered" )
     [
       set state "Susceptible"
@@ -536,22 +574,25 @@ to recovery-or-death-people
 end
 
 to lay-eggs
-  hatch-aedesp random-integer-between 20 50
+  ;show "Laying Eggs"
+  hatch-aedesp random-integer-between EGGS-NUMBER EGGS-NUMBER + 5
   [
     ;show "Inside Hatch"
     set shape "bug"
-    set size 0.4
+    set size MOSQUITO-SIZE
     set age 0
     set life_stage "Eggs"
     ifelse (random-bool 0.5)
     [
       set female? True
       set laidEggs? False
+      set eggsTimes 0
     ]
     [
       set female? False
       set infected? False
       set laidEggs? False
+      set EggsTimes 0
     ]
 ;   if ( random-bool 0.5 )
   ; [
@@ -563,28 +604,19 @@ end
 
 
 ;;--reproduce Aedesp
-; 2 functions written here , temp is not being used
 ; The actual function consideres whether male is in range and mating can happen also checks for breeding zone in range and if there is no breeding zone in range
 ; then Vector need to move to Breeding Zone
-to reproduce-aedesp-temp
-  ask aedesp with [ female? = True and age > 10 and life_Stage = "Adult"]
-  [
-    if any? aedesp in-radius 2 with [female? = False and life_stage = "Adult"]
-    [
-    set laidEggs? True
-    lay-eggs
-    ]
-  ]
-end
 
 
 to reproduce-aedesp
   ask aedesp with [ female? = True and age > 10 and life_Stage = "Adult"]
   [
-    ifelse ((any? aedesp in-radius 2 with [female? = False and life_stage = "Adult"] ) and ( any? breedingZones in-radius BREEDING-RANGE ) and laidEggs? = False)
+    ifelse ((any? aedesp in-radius 0.5 with [female? = False and life_stage = "Adult"] ) and ( any? breedingZones in-radius BREEDING-RANGE ) and ( laidEggs? = False or ( laidEggs? = True and eggsTimes < 3 ) )
+      and random-bool 0.5 )
     [
     ;;show "I am here"
     set laidEggs? True
+    set eggsTimes eggsTimes + 1
     lay-eggs
     ]
     [
@@ -599,10 +631,13 @@ end
 
 
 to change-state-aedesp
+  ifelse (season = "RAINY" or season = "WINTER")
+  [
   ask aedesp with [age < 4]
   [
     set life_stage "Eggs"
   ]
+
   ask aedesp with [age >= 4 and age < 8]
   [
     set life_stage "Larva"
@@ -614,6 +649,27 @@ to change-state-aedesp
   ask aedesp with [age > 10]
   [
     set life_stage "Adult"
+  ]
+  ]
+  [
+
+  ask aedesp with [age < 3]
+  [
+    set life_stage "Eggs"
+  ]
+
+  ask aedesp with [age >= 3 and age < 7]
+  [
+    set life_stage "Larva"
+  ]
+  ask aedesp with [age >= 7 and age <= 8]
+  [
+    set life_stage "Pupa"
+  ]
+  ask aedesp with [age > 8]
+  [
+    set life_stage "Adult"
+  ]
   ]
 end
 
@@ -680,7 +736,6 @@ to eliminate-breeding-zone
    [
     die
    ]
-
   ]
 end
 
@@ -765,10 +820,19 @@ to write-to-file
     file-close
 end
 
-
-;;---------------map and actual population simulation-------- done
-;; ---------------addition of exposed state - to be done
-;;  have more breeding zones in some wards
+to change-season
+  set days days + 1
+  if days > 90
+  [
+  set days 0
+  if SEASON = "RAINY"
+  [ set SEASON  "WINTER" ]
+  if SEASON = "WINTER"
+  [set SEASON  "SUMMER"]
+  if SEASON = "SUMMER"
+  [set SEASON  "WINTER"]
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -821,7 +885,7 @@ Aedes
 Aedes
 0
 1000
-312.0
+400.0
 1
 1
 NIL
@@ -834,7 +898,7 @@ SWITCH
 315
 Seasonal_variation
 Seasonal_variation
-1
+0
 1
 -1000
 
@@ -873,11 +937,11 @@ NIL
 1
 
 PLOT
-902
-109
-1102
-259
-Infected people
+827
+103
+1027
+253
+People state
 Time
 Infections
 0.0
@@ -889,12 +953,13 @@ false
 "" ""
 PENS
 "pen-1" 1.0 0 -7500403 true "" "plot count people with  [state = \"Infected\"]"
+"pen-2" 1.0 0 -2674135 true "" "plot deadPeople"
 
 PLOT
-1121
-111
-1321
-261
+1049
+100
+1249
+250
 Infected Vector
 NIL
 NIL
@@ -909,46 +974,35 @@ PENS
 "default" 1.0 0 -2674135 true "" "plot count aedesp with [infected? = True and female? = True]"
 
 SLIDER
-1085
+1092
+328
+1264
 361
-1257
-394
 BREED-ZONES
 BREED-ZONES
 0
 100
-48.0
+60.0
 2
 1
 NIL
 HORIZONTAL
 
-SWITCH
-871
-428
-1095
-461
-BREED_ZONE_ELM
-BREED_ZONE_ELM
-0
-1
--1000
-
 CHOOSER
-901
-353
-1039
-398
+907
+327
+1045
+372
 SEASON
 SEASON
 "RAINY" "SUMMER" "WINTER"
-1
+2
 
 SLIDER
-1293
-361
-1465
-394
+1292
+335
+1464
+368
 EGGS-NUMBER
 EGGS-NUMBER
 10
@@ -960,25 +1014,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-1131
-425
-1303
-458
+1096
+381
+1268
+414
 inf-prob
 inf-prob
 0
 1
-0.3
-0.1
+0.55
+0.05
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1339
-426
-1511
-459
+1296
+382
+1468
+415
 Recovery-rate
 Recovery-rate
 0
@@ -990,10 +1044,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-895
-487
-1067
-520
+907
+442
+1079
+475
 Co-morbid
 Co-morbid
 0
@@ -1054,6 +1108,65 @@ NIL
 NIL
 NIL
 1
+
+SWITCH
+908
+387
+1075
+420
+BREED_ZONE_ELM
+BREED_ZONE_ELM
+0
+1
+-1000
+
+PLOT
+1268
+98
+1468
+248
+Breeding Zones
+NIL
+NIL
+0.0
+100.0
+0.0
+100.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count breedingZones"
+
+SLIDER
+1094
+444
+1266
+477
+duration
+duration
+0
+20
+11.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1301
+443
+1473
+476
+W_ACC
+W_ACC
+0
+10
+6.0
+0.5
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1465,6 +1578,187 @@ NetLogo 6.2.1
     <enumeratedValueSet variable="BREED-ZONES">
       <value value="30"/>
       <value value="40"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="dengue-experiments" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup draw set-pop</setup>
+    <go>go</go>
+    <timeLimit steps="60"/>
+    <exitCondition>count aedesp with [ infected? = True ] = 0</exitCondition>
+    <metric>count people with [ state = "Infected" ]</metric>
+    <metric>count people with [ state = "Recovered" ]</metric>
+    <metric>count aedesp with [ infected? = True and female? = True ]</metric>
+    <enumeratedValueSet variable="duration">
+      <value value="11"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="inf-prob">
+      <value value="0.5"/>
+      <value value="0.6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Human_population">
+      <value value="2000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="W_ACC">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Seasonal_variation">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Recovery-rate">
+      <value value="0.995"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Co-morbid">
+      <value value="0.8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BREED_ZONE_ELM">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="EGGS-NUMBER">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SEASON">
+      <value value="&quot;RAINY&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Aedes">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BREED-ZONES">
+      <value value="50"/>
+      <value value="55"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="sesonal-variation" repetitions="5" sequentialRunOrder="false" runMetricsEveryStep="true">
+    <setup>setup draw set-pop</setup>
+    <go>go</go>
+    <timeLimit steps="60"/>
+    <exitCondition>count aedesp with [infected? = True ] = 0</exitCondition>
+    <metric>count people with [state = "Infected" ]</metric>
+    <metric>count aedesp with [infected? = True ]</metric>
+    <metric>count breedingZones</metric>
+    <enumeratedValueSet variable="duration">
+      <value value="11"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="inf-prob">
+      <value value="0.55"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Human_population">
+      <value value="2000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="W_ACC">
+      <value value="8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Seasonal_variation">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Recovery-rate">
+      <value value="0.995"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Co-morbid">
+      <value value="0.8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BREED_ZONE_ELM">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="EGGS-NUMBER">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SEASON">
+      <value value="&quot;RAINY&quot;"/>
+      <value value="&quot;SUMMER&quot;"/>
+      <value value="&quot;WINTER&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Aedes">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BREED-ZONES">
+      <value value="45"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="experiment" repetitions="8" runMetricsEveryStep="true">
+    <setup>setup draw set-pop</setup>
+    <go>go</go>
+    <timeLimit steps="75"/>
+    <metric>count aedesp with [infected? = True ]</metric>
+    <enumeratedValueSet variable="duration">
+      <value value="11"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="inf-prob">
+      <value value="0.55"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Human_population">
+      <value value="2000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="W_ACC">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Seasonal_variation">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Recovery-rate">
+      <value value="0.995"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Co-morbid">
+      <value value="0.8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BREED_ZONE_ELM">
+      <value value="false"/>
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="EGGS-NUMBER">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SEASON">
+      <value value="&quot;WINTER&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Aedes">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BREED-ZONES">
+      <value value="45"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="full_year_experiment" repetitions="3" runMetricsEveryStep="true">
+    <setup>setup draw set-pop</setup>
+    <go>go</go>
+    <timeLimit steps="365"/>
+    <metric>count aedesp with [infected? = True]</metric>
+    <metric>count people with [state = "Infected"]</metric>
+    <metric>count people with [state = "Recovered"]</metric>
+    <enumeratedValueSet variable="duration">
+      <value value="11"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="inf-prob">
+      <value value="0.55"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Human_population">
+      <value value="2000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="W_ACC">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Seasonal_variation">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Recovery-rate">
+      <value value="0.995"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Co-morbid">
+      <value value="0.8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BREED_ZONE_ELM">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="EGGS-NUMBER">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SEASON">
+      <value value="&quot;WINTER&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Aedes">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BREED-ZONES">
+      <value value="60"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
