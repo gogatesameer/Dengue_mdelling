@@ -157,7 +157,7 @@ end
 
 to set-pop
   ;; this wait is added so that draw happens before in behaviour search , as it looks like command can be executed in async way
-  wait 10
+  wait 5
   ;create-people-random
   clear-plot
   reset-ticks
@@ -212,7 +212,7 @@ to create-aedesp-random
     ifelse (random-bool 0.5)
     [
       set female? True
-      if(random-bool 0.05)
+      if(random-bool 0.06)
     [
       set infected? True
       set color red
@@ -427,7 +427,9 @@ to act-aedsp
  set life_stage_ticks (life_stage_ticks + 1)
  change-state-aedesp
  ]
-  if count aedesp with [infected? = True ] = 0
+  if count aedesp with [infected? = True ] < 2
+  [
+  repeat 3
   [
   ask one-of aedesp
   [
@@ -436,6 +438,7 @@ to act-aedsp
     set infected?  True
     set color Red
       ]
+  ]
   ]
   ]
 end
@@ -458,7 +461,7 @@ to act-patches
 
       if (SEASON = "RAINY" )
       [
-        set waterAccumulation waterAccumulation + W_ACC * 2
+        set waterAccumulation waterAccumulation + W_ACC
       ]
       if (SEASON = "WINTER" OR SEASON = "SUMMER")
        [
@@ -654,7 +657,7 @@ end
 
 
 to change-state-aedesp
-  ifelse (season = "RAINY" or season = "WINTER" or season = "SUMMER")
+  ifelse (season = "RAINY" or season = "WINTER")
   [
   ask aedesp with [age < 4]
   [
@@ -675,21 +678,21 @@ to change-state-aedesp
   ]
   ]
   [
-
-  ask aedesp with [age < 3]
+  let p random-integer-between 0 2
+  ask aedesp with [age < 4 - p]
   [
     set life_stage "Eggs"
   ]
 
-  ask aedesp with [age >= 3 and age < 7]
+  ask aedesp with [age >= 4 - p and age < 8 - p]
   [
     set life_stage "Larva"
   ]
-  ask aedesp with [age >= 7 and age <= 8]
+  ask aedesp with [age >= 8 - p and age <=  10 - p]
   [
     set life_stage "Pupa"
   ]
-  ask aedesp with [age > 8]
+  ask aedesp with [age > 8 - p]
   [
     set life_stage "Adult"
   ]
@@ -700,14 +703,7 @@ end
 to die-aedesp
   ask aedesp
   [
-    if (age > 50 and random-bool 0.2)
-    [
-      die
-    ]
-  ]
-  ask aedesp
-  [
-    if (random-bool random-normal AEDES-NATURAL-DEATH 0.005)
+    if (age >= 3 AND random-bool random-normal AEDES-NATURAL-DEATH 0.0001)
     [
       die
     ]
@@ -837,13 +833,13 @@ end
 to move-breedZones-nearhome
 ask breedingZones[
 
-let target (min-one-of houses [distance myself] )
+let target (one-of houses )
  let distanceTemp ([ distance myself ] of target )
-  if ( distanceTemp > 1 )
+  if ( distanceTemp > 0.5 )
   [
 
     set heading (towards target )
-    forward (distanceTemp - 1)
+    forward (distanceTemp - 0.5)
   ]
   ]
 end
@@ -858,7 +854,7 @@ end
 
 to change-season
   set days days + 1
-  if days > 90
+  if days > 120
   [
   set days 0
   if SEASON = "RAINY"
@@ -1044,7 +1040,7 @@ EGGS-NUMBER
 EGGS-NUMBER
 10
 100
-50.0
+57.0
 1
 1
 NIL
@@ -1059,7 +1055,7 @@ inf-prob
 inf-prob
 0
 1
-0.5
+0.65
 0.05
 1
 NIL
@@ -1089,7 +1085,7 @@ Co-morbid
 Co-morbid
 0
 1
-0.95
+0.8
 0.05
 1
 NIL
@@ -1184,7 +1180,7 @@ duration
 duration
 0
 20
-20.0
+11.0
 1
 1
 NIL
@@ -1199,7 +1195,7 @@ W_ACC
 W_ACC
 0
 10
-5.0
+6.0
 0.5
 1
 NIL
@@ -1214,7 +1210,7 @@ BREED-PROB
 BREED-PROB
 0
 1
-0.19
+0.188
 0.002
 1
 NIL
@@ -1254,7 +1250,7 @@ AEDES-NATURAL-DEATH
 AEDES-NATURAL-DEATH
 0
 0.1
-0.097
+0.093
 0.001
 1
 NIL
@@ -1865,13 +1861,18 @@ NetLogo 6.2.1
       <value value="0.2"/>
     </enumeratedValueSet>
   </experiment>
-  <experiment name="experiment" repetitions="5" runMetricsEveryStep="false">
-    <setup>setup draw set-pop</setup>
+  <experiment name="experiments with parameters tuned" repetitions="30" runMetricsEveryStep="true">
+    <setup>setup</setup>
     <go>go</go>
-    <timeLimit steps="30"/>
+    <timeLimit steps="120"/>
+    <exitCondition>count aedesp &gt; 1800 or count aedesp &lt; 80</exitCondition>
     <metric>count aedesp</metric>
+    <metric>count aedesp with [infected? = True ]</metric>
+    <metric>count people with [state = "Infected"]</metric>
+    <metric>count people with [state = "Recovered"]</metric>
+    <metric>count people with [state = "Dead"]</metric>
     <enumeratedValueSet variable="inf-prob">
-      <value value="0.55"/>
+      <value value="0.54"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="duration">
       <value value="11"/>
@@ -1892,30 +1893,27 @@ NetLogo 6.2.1
       <value value="0.8"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="Aedes">
-      <value value="300"/>
+      <value value="400"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="EGGS-NUMBER">
-      <value value="12"/>
+      <value value="57"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="SEASON">
+      <value value="&quot;SUMMER&quot;"/>
+      <value value="&quot;RAINY&quot;"/>
       <value value="&quot;WINTER&quot;"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="BREED_ZONE_ELM">
       <value value="true"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="BREED-PROB">
-      <value value="0.21"/>
-      <value value="0.22"/>
-      <value value="0.23"/>
-      <value value="0.24"/>
-      <value value="0.25"/>
-      <value value="0.26"/>
-      <value value="0.27"/>
-      <value value="0.28"/>
-      <value value="0.29"/>
+      <value value="0.188"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="BREED-ZONES">
-      <value value="44"/>
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="AEDES-NATURAL-DEATH">
+      <value value="0.093"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
