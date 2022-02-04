@@ -172,6 +172,7 @@ to set-pop
   move-breedZones-nearhome
   set-house
   set-patches
+  set-work
 end
 
 ;; Check size of all so that movement and ranges mean actually
@@ -298,6 +299,9 @@ to load-pop
           ifelse random-bool Co-morbid
           [set comorbid? False ]
           [ set comorbid? True ]
+          ifelse random-bool 0.5 and age > 18 and age < 65
+        [ set worker? True]
+        [set worker? False]
         ]
     ]
     file-close
@@ -362,12 +366,17 @@ end
 
 
 to act-human-day
-  ask people [ rt random 91 - 45 fd 1 ]
+    ifelse worker? = True
+    [ go-towards-work my-workplace 2 0.9 ]
+    [ rt random 91 - 45 fd random-normal 1 0 ]
 end
 
 to act-human-night
-  set counter 0
-  ask people [go-towards-house my-house 2 0.4]
+  ifelse random-bool 0.9 and worker? = True
+  [go-towards-house my-house 2 0.95]
+  [ if random-bool 0.1 [rt random 91 - 45 fd random-normal 1 0 ] ]
+
+
   ;;show counter
   kill-probabilistically-aedesp
 end
@@ -772,7 +781,7 @@ end
 
 
 to go-towards-house [target speed probability ]
-   ifelse( random-bool 0.5 )
+   ifelse( random-bool 0.9 )
    [
       set counter counter + 1
       let distanceTemp ([distance myself] of target)
@@ -786,10 +795,7 @@ to go-towards-house [target speed probability ]
    ]
 
    [
-      set heading (random-integer-between 0 180 )
-
-        ;;show "Moving towards Breeding zone"
-      forward speed
+      rt random 91 - 45 fd random-normal 1 0
   ]
 end
 
@@ -808,7 +814,7 @@ end
 to set-work
   ask people
   [
-    if worker? and my-workplace != nobody
+    if worker? = True and my-workplace != nobody
     [
       set my-workplace one-of workZones
     ]
@@ -818,15 +824,14 @@ end
 
 
 to go-towards-work [target speed probability]
-  if (random-bool 0.9)
+  if (random-bool probability and target != nobody)
   [
-  let distanceTemp ([distance myself] of target)
-      if( ([distance myself] of target) != 0)
-      [
-        ;;show "Moving towards Breeding zone"
-        set heading (towards target)
-        ifelse(distanceTemp > speed)[forward speed][forward distanceTemp]
-      ]
+        let distanceTemp ([distance myself] of target)
+        if distanceTemp != 0
+        [
+        set heading (towards target )
+        move-to target
+       ]
   ]
 end
 
@@ -1040,7 +1045,7 @@ EGGS-NUMBER
 EGGS-NUMBER
 10
 100
-57.0
+31.0
 1
 1
 NIL
@@ -1240,6 +1245,13 @@ PENS
 "Sangamwadi" 1.0 0 -1184463 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 06 Yerawda - Sangamwadi\"]"
 "NagarRoad" 1.0 0 -10899396 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 07 Nagar Road\"]"
 "Kasba" 1.0 0 -13840069 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 08 KasbaVishrambaugwada\"]"
+"tilakroad" 1.0 0 -14835848 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 09 Tilak Road\"]"
+"sahkarnagar" 1.0 0 -11221820 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 10 Sahakarnagar\"]"
+"bibwewadi" 1.0 0 -13791810 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 11 Bibwewadi\"]"
+"bhavanipeth" 1.0 0 -13345367 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 12 Bhavani Peth\"]"
+"Hadpsar" 1.0 0 -8630108 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 13 Hadapsar\"]"
+"Dhankavadi" 1.0 0 -5825686 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 14 Dhankawadi\"]"
+"kondhwa" 1.0 0 -2064490 true "" "plot count people with [ state =  \"Infected\" and ward =\"Admin Ward 15 Kondhwa Wanavdi\"]"
 
 SLIDER
 1100
