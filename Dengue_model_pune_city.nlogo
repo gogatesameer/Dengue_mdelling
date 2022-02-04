@@ -378,7 +378,7 @@ to act-human-night
 
 
   ;;show counter
-  kill-probabilistically-aedesp
+  ;kill-probabilistically-aedesp
 end
 
 
@@ -728,6 +728,7 @@ end
 ;; Working population
 
 
+;depracated very less probability
 to kill-probabilistically-aedesp
   let aedes_in_range aedesp in-radius HUMAN_KILLING_RANGE
   if(any? aedes_in_range)[if(random-bool 0.1)[ask one-of aedes_in_range[act-dead]]];Death by human
@@ -1215,7 +1216,7 @@ BREED-PROB
 BREED-PROB
 0
 1
-0.188
+0.194
 0.002
 1
 NIL
@@ -1262,7 +1263,7 @@ AEDES-NATURAL-DEATH
 AEDES-NATURAL-DEATH
 0
 0.1
-0.093
+0.089
 0.001
 1
 NIL
